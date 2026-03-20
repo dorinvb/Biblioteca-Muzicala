@@ -41,20 +41,31 @@ const REMASTER_WORDS = ['deluxe','remastered','remaster','anniversary','expanded
 
 function _pickBestItunesAlbum(results, albumName, releaseYear) {
     if (!results?.length) return null;
-    const norm = s => (s||'').toLowerCase().replace(/[^\w\s]/g,' ').replace(/\s+/g,' ').trim();
-    const albumNorm = norm(albumName);
-    const isOld     = releaseYear && parseInt(releaseYear) < 1995;
 
-    // Scor pentru fiecare rezultat
-    const scored = results.map(r => {
+    // Filtrăm strict doar albume muzicale — eliminăm filme, cărți, TV shows
+    const albums = results.filter(r =>
+        r.wrapperType === 'collection' &&
+        r.collectionType === 'Album' &&
+        r.primaryGenreName !== 'Documentary' &&
+        r.primaryGenreName !== 'Fiction' &&
+        r.primaryGenreName !== 'Nonfiction' &&
+        r.primaryGenreName !== 'Drama' &&
+        r.primaryGenreName !== 'Comedy'
+    );
+
+    if (!albums.length) return null;
+
+    const norm  = s => (s||'').toLowerCase().replace(/[^\w\s]/g,' ').replace(/\s+/g,' ').trim();
+    const aNorm = norm(albumName);
+    const isOld = releaseYear && parseInt(releaseYear) < 1995;
+
+    const scored = albums.map(r => {
         const rNorm = norm(r.collectionName);
         let score = 0;
-        // Potrivire titlu
-        if (rNorm === albumNorm) score += 100;
-        else if (rNorm.includes(albumNorm.slice(0,15))) score += 50;
-        // Penalizare pentru versiuni remasterizate la albume vechi
+        if (rNorm === aNorm)                            score += 100;
+        else if (rNorm.includes(aNorm.slice(0,15)))     score += 50;
+        else if (aNorm.includes(rNorm.slice(0,10)))     score += 30;
         if (isOld && REMASTER_WORDS.some(w => rNorm.includes(w))) score -= 40;
-        // Bonus dacă anul corespunde
         if (releaseYear && r.releaseDate?.startsWith(releaseYear)) score += 30;
         return { r, score };
     });
@@ -81,12 +92,12 @@ async function getCover(artist, album, size = 500, year = null) {
 }
 
 async function _fetchCover(artist, album, size, year) {
-    const itunesUrl = `${ITUNES_BASE}?term=${encodeURIComponent(artist+' '+album)}&entity=album&limit=8&media=music`;
+    // iTunes: căutăm strict albume muzicale
+    const itunesUrl = `${ITUNES_BASE}?term=${encodeURIComponent(artist+' '+album)}&entity=album&media=music&limit=10`;
     const iData = await cachedFetch(proxyUrl(itunesUrl));
     if (iData?.results?.length) {
         const best = _pickBestItunesAlbum(iData.results, album, year);
         if (best?.artworkUrl100) {
-            // Trece URL-ul imaginii prin proxy → rezolvă CORS pe mzstatic.com
             const imgUrl = best.artworkUrl100.replace('100x100bb', `${size}x${size}bb`);
             return proxyUrl(imgUrl);
         }
@@ -96,7 +107,6 @@ async function _fetchCover(artist, album, size, year) {
     const mbData = await cachedFetch(proxyUrl(mbUrl));
     const mbid   = mbData?.['release-groups']?.[0]?.id;
     if (mbid) {
-        // Worker urmărește redirect-ul CAA și returnează imaginea direct
         return proxyUrl(`${CAA_BASE}/release-group/${mbid}/front-${size}`);
     }
     return '';
@@ -140,7 +150,7 @@ async function getItunesTracks(artist, album) {
     if (previewCache.has(key)) return previewCache.get(key);
     const url  = `${ITUNES_BASE}?term=${encodeURIComponent(artist+' '+album)}&entity=song&limit=30&media=music`;
     const data = await cachedFetch(proxyUrl(url));
-    const tracks = (data?.results||[]).filter(r => r.wrapperType==='track' && r.previewUrl);
+    const tracks = (data?.results||[]).filter(r => r.wrapperType==='track' && r.kind==='song' && r.previewUrl);
     previewCache.set(key, tracks);
     return tracks;
 }
@@ -152,7 +162,7 @@ async function getAlbumMetadata(artist, album) {
     const [lfData, mbData, iData] = await Promise.all([
         cachedFetch(`${LASTFM_BASE}?method=album.getinfo&artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}&api_key=${LASTFM_KEY}&format=json&autocorrect=1`),
         cachedFetch(proxyUrl(`${MB_BASE}/release-group?query=artist:"${encodeURIComponent(artist)}" AND releasegroup:"${encodeURIComponent(album)}"&fmt=json&limit=1`)),
-        cachedFetch(proxyUrl(`${ITUNES_BASE}?term=${encodeURIComponent(artist+' '+album)}&entity=album&limit=5&media=music`)),
+        cachedFetch(proxyUrl(`${ITUNES_BASE}?term=${encodeURIComponent(artist+' '+album)}&entity=album&media=music&limit=10`)),
     ]);
     const releaseYear = mbData?.['release-groups']?.[0]?.['first-release-date']?.slice(0,4) || '';
     return {
