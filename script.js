@@ -85,18 +85,19 @@ async function _fetchCover(artist, album, size, year) {
     const iData = await cachedFetch(proxyUrl(itunesUrl));
     if (iData?.results?.length) {
         const best = _pickBestItunesAlbum(iData.results, album, year);
-        if (best?.artworkUrl100)
-            return best.artworkUrl100.replace('100x100bb', `${size}x${size}bb`);
+        if (best?.artworkUrl100) {
+            // Trece URL-ul imaginii prin proxy → rezolvă CORS pe mzstatic.com
+            const imgUrl = best.artworkUrl100.replace('100x100bb', `${size}x${size}bb`);
+            return proxyUrl(imgUrl);
+        }
     }
     // Cover Art Archive via MusicBrainz
     const mbUrl  = `${MB_BASE}/release-group?query=artist:"${encodeURIComponent(artist)}" AND releasegroup:"${encodeURIComponent(album)}"&fmt=json&limit=3`;
     const mbData = await cachedFetch(proxyUrl(mbUrl));
     const mbid   = mbData?.['release-groups']?.[0]?.id;
     if (mbid) {
-        try {
-            const caaData = await cachedFetch(proxyUrl(`${CAA_BASE}/release-group/${mbid}/front-${size}`));
-            if (caaData?.url) return caaData.url;
-        } catch {}
+        // Worker urmărește redirect-ul CAA și returnează imaginea direct
+        return proxyUrl(`${CAA_BASE}/release-group/${mbid}/front-${size}`);
     }
     return '';
 }
@@ -615,7 +616,10 @@ function renderArtistCard(rowId, artist) {
     const setImg=(url)=>{ if(url) _applyCardCover(`ai-${uid}`,`an-${uid}`,url); };
     if (artist.picture) setImg(artist.picture);
     else cachedFetch(proxyUrl(`${ITUNES_BASE}?term=${encodeURIComponent(artist.name)}&entity=musicArtist&limit=1`))
-        .then(d=>{ const url=d?.results?.[0]?.artworkUrl100?.replace('100x100bb','300x300bb'); if(url) setImg(url); });
+        .then(d=>{
+            const raw = d?.results?.[0]?.artworkUrl100?.replace('100x100bb','300x300bb');
+            if (raw) setImg(proxyUrl(raw));
+        });
 }
 
 function _applyCardCover(imgId, npId, url) {
@@ -703,7 +707,9 @@ async function renderAlbumOverlay(albumId) {
 
     // Poza artistului pentru backdrop
     const iArtists = (artistMeta.iData?.results||[]).filter(r=>r.wrapperType==='artist');
-    const artistPicUrl = iArtists[0]?.artworkUrl100?.replace('100x100bb','1000x1000bb') || '';
+    const artistPicUrl = iArtists[0]?.artworkUrl100
+        ? proxyUrl(iArtists[0].artworkUrl100.replace('100x100bb','1000x1000bb'))
+        : '';
 
     const tracks    = lfAlbum?.tracks?.track||[];
     const lfTracksArr = Array.isArray(tracks)?tracks:(tracks?[tracks]:[]);
@@ -851,7 +857,7 @@ async function renderArtistOverlay(artistId) {
     let pictureUrl='';
     const iArtists=(iData?.results||[]).filter(r=>r.wrapperType==='artist');
     if (iArtists[0]?.artworkUrl100)
-        pictureUrl=iArtists[0].artworkUrl100.replace('100x100bb','600x600bb');
+        pictureUrl = proxyUrl(iArtists[0].artworkUrl100.replace('100x100bb','600x600bb'));
 
     const topTracksHtml = tracksArr.length?`
         <div class="music-section" style="padding:0 28px">
