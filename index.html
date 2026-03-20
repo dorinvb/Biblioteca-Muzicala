@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biblioteca Muzicală</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header id="main-header">
+    <div class="header-left">
+        <div class="logo-note" onclick="goHome()" title="Acasă">
+            <svg width="42" height="42" viewBox="0 0 55 55" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="27.5" cy="27.5" r="20" fill="#1a1a1a" stroke="#f5c518" stroke-width="2"/>
+                <circle cx="27.5" cy="27.5" r="6" fill="#f5c518"/>
+                <circle cx="27.5" cy="27.5" r="2.5" fill="#121212"/>
+                <path d="M27.5 7.5 A20 20 0 0 1 47.5 27.5" stroke="#f5c518" stroke-width="1.5" fill="none" opacity="0.4"/>
+                <path d="M27.5 12 A15.5 15.5 0 0 1 43 27.5" stroke="#f5c518" stroke-width="1" fill="none" opacity="0.3"/>
+            </svg>
+        </div>
+        <button class="home-btn" onclick="goHome()">
+            <i class="fas fa-home"></i>
+            <span>HOME</span>
+        </button>
+    </div>
+
+    <div class="header-title">BIBLIOTECA MUZICALĂ</div>
+
+    <div class="header-right">
+        <div class="dropdown-group">
+            <span class="dropdown-label">GEN MUZICAL</span>
+            <select id="genre-select" onchange="handleGenreChange()">
+                <option value="">— Toate genurile —</option>
+            </select>
+        </div>
+    </div>
+</header>
+
+<!-- MAIN VIEWPORT -->
+<main id="app-viewport"></main>
+
+<!-- OVERLAY ALBUM (z-index: 2000) -->
+<div id="album-overlay" class="overlay" style="display:none">
+    <div id="album-overlay-content" class="overlay-content"></div>
+</div>
+
+<!-- OVERLAY ARTIST (z-index: 3000) -->
+<div id="artist-overlay" class="overlay overlay-artist" style="display:none">
+    <div id="artist-overlay-content" class="overlay-content"></div>
+</div>
+
+<script src="database/map.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
